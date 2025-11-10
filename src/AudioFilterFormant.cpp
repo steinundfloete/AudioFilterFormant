@@ -54,8 +54,8 @@ void AudioFilterFormant::setFormantMorph(float m){
 }
 
 void AudioFilterFormant::setBrightness(float semi){
-  if(semi<-48.0f) semi = -48.0f;
-  if(semi> 48.0f) semi =  48.0f;
+  if(semi<-24.0f) semi = -24.0f;
+  if(semi> 24.0f) semi =  24.0f;
   brightness = semi;
   pitchScale = powf(2.0f, brightness / 12.0f);
   calcFormants();
