@@ -28,6 +28,7 @@ AudioFilterFormant::AudioFilterFormant()
   formantSetMorph = 0.0f;
   brightness = 0.0f;
   pitchScale = 1.0f;
+  mix = 1.0f; // default = full effect
   calcFormants();
 }
 
@@ -59,6 +60,12 @@ void AudioFilterFormant::setBrightness(float semi){
   brightness = semi;
   pitchScale = powf(2.0f, brightness / 12.0f);
   calcFormants();
+}
+
+void AudioFilterFormant::setMix(float m) {
+  if (m < 0.0f) m = 0.0f;
+  if (m > 1.0f) m = 1.0f;
+  mix = m;
 }
 
 // ---------------------------------------------------------------------------
@@ -175,16 +182,28 @@ void AudioFilterFormant::update(void){
 
   audio_block_t *in = receiveReadOnly(0);
   if(!in) return;
+  if(mix == 0.0f) {
+    transmit(in);
+    release(in);
+	return; 
+  }
   audio_block_t *out = allocate();
-  if(!out){ release(in); return; }
+  if(!out){ 
+	release(in); 
+	return; 
+  }
 
   for(int i=0;i<AUDIO_BLOCK_SAMPLES;i++){
     float x = (float)in->data[i] / 32768.0f;
     float y1 = processBiquad(bq1,x);
     float y2 = processBiquad(bq2,x);
     float y3 = processBiquad(bq3,x);
-    float y  = (y1+y2+y3) * (gain * compGain * 5.0f / 3.0f); // global level fix
-    if(y>1) y=1; else if(y<-1) y=-1;
+	float wet = (y1 + y2 + y3) * (gain * compGain * 5.0f / 3.0f);
+	float y = (x * (1.0f - mix)) + (wet * mix);    
+	if(y>1) 
+		y=1; 
+	else if(y<-1) 
+		y=-1;
     out->data[i] = (int16_t)(y * 32767.0f);
   }
 

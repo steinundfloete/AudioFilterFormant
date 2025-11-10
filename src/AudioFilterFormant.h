@@ -73,6 +73,12 @@ public:
   /** Global brightness / vocal-tract length offset in semitones
       (−24 … +24, default = 0).  Positive = brighter / shorter tract. */
   void setBrightness(float semi);
+  
+  /** Set dry/wet mix balance.
+      0.0 = 100% dry (original input)
+      1.0 = 100% wet (formant filter only)
+      default = 1.0 */
+  void setMix(float m);  
 
 private:
   audio_block_t *inputQueueArray[1];
@@ -92,6 +98,7 @@ private:
   float pitchScale;        // derived frequency scale
   float f1,f2,f3;
   Biquad bq1,bq2,bq3;
+  float mix;  // dry/wet balance
 
   void calcFormants();
   void calcBandpass(Biquad &bq, float freq);

@@ -38,6 +38,7 @@ MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 #define MIDI_CC_BRIGHTNESS 25
 #define MIDI_CC_OSC_WAVE 26
 #define MIDI_CC_OSC_SHAPE 27
+#define MIDI_CC_MIX 28
 
 const float MIDI_PITCHBEND_SCALER_NEG = 1.0f / 8192.0f;
 const float MIDI_PITCHBEND_SCALER_POS = 1.0f / 8191.0f;
@@ -113,9 +114,9 @@ void loop() {
   }
 }
 void handleNoteOff(byte channel, byte pitch, byte velocity) {
-  if(playedNote == pitch) {
-  Serial.println("Note off");
-  osc1.amplitude(0.0f);
+  if (playedNote == pitch) {
+    Serial.println("Note off");
+    osc1.amplitude(0.0f);
   }
 }
 
@@ -212,6 +213,9 @@ void onControlChange(byte channel, byte number, byte value) {
     case MIDI_CC_OSC_SHAPE:
       dc1.amplitude(fvalue);
       break;
+    case MIDI_CC_MIX:
+      formant1.setMix(fvalue);
+      break;
     default:
       break;
   }
@@ -244,6 +248,9 @@ void onControlChange(byte channel, byte number, byte value) {
       break;
     case MIDI_CC_OSC_SHAPE:
       Serial.printf("Osc Shape: %f\n", fvalue);
+      break;
+    case MIDI_CC_MIX:
+      Serial.printf("Formant Mix: %f\n", fvalue);
       break;
     default:
       Serial.printf("UNUSED MIDI CC#%d: %d \n", number, value);
