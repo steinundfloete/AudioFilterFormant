@@ -17,6 +17,18 @@ This filter simulates human vowel resonances (A–E–I–O–U) using three par
 
 ---
 
+### Controls
+| Function | Range | Description |
+|-----------|--------|-------------|
+| `setVowel(float)` | 0.0 – 4.0 | Morphs between vowels (A–E–I–O–U) |
+| `setQ(float)` | 0.1 – 20.0 | Resonance / sharpness |
+| `setFormantMorph(float)` | 0.0 – 1.0 | Morph between male → female → child voice |
+| `setBrightness(float)` | −24 – +24 semitones | Adjusts vocal tract length |
+| `setMix(float)` | 0.0 – 1.0 | Dry/wet mix (0=dry, 1=wet) |
+| `setGain(float)` | any | Output gain |
+
+---
+
 ## 📦 Installation
 
 1. Download or clone this repository into your Arduino `libraries/` folder.
