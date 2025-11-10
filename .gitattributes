@@ -1,2 +1,14 @@
-# Auto detect text files and perform LF normalization
+# Normalize line endings
 * text=auto
+
+# Treat source files as text
+*.h text
+*.cpp text
+*.ino text
+*.md text
+*.txt text
+*.properties text
+
+# Keep binary files as-is
+*.png binary
+*.jpg binary

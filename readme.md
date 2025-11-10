@@ -1,0 +1,10 @@
+###########################################
+# Syntax Coloring Map for AudioFilterFormant
+###########################################
+
+AudioFilterFormant	KEYWORD1
+setVowel	KEYWORD2
+setQ	KEYWORD2
+setGain	KEYWORD2
+setFormantMorph	KEYWORD2
+setBrightness	KEYWORD2

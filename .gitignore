@@ -1,0 +1,19 @@
+# Arduino / PlatformIO build artifacts
+*.bak
+*.swp
+*.o
+*.obj
+*.elf
+*.bin
+*.hex
+*.d
+*.a
+*.map
+
+# macOS / Windows metadata
+.DS_Store
+Thumbs.db
+
+# VSCode / PlatformIO
+.vscode/
+.pio/
