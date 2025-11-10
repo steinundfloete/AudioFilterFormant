@@ -51,5 +51,5 @@ void loop() {
   formant.setBrightness(bright);
   formant.setFormantMorph(morph);
 
-  delay(10);
+  delay(2);
 }
