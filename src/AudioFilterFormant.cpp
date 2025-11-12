@@ -105,7 +105,6 @@ void AudioFilterFormant::smoothParams(){
   // Q loudness compensation (normalize around Q = 5)
   compGain = sqrtf(qFactor / 2.0f);
 
-  static float lastV = -1, lastQ = -1;
   if(fabsf(vowel-lastV)>0.005f || fabsf(qFactor-lastQ)>0.02f){
     calcFormants();
     lastV = vowel; lastQ = qFactor;

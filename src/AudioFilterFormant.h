@@ -99,6 +99,7 @@ private:
   float f1,f2,f3;
   Biquad bq1,bq2,bq3;
   float mix;  // dry/wet balance
+  float lastV = -1, lastQ = -1;
 
   void calcFormants();
   void calcBandpass(Biquad &bq, float freq);
