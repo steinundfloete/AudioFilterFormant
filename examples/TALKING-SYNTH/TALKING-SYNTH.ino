@@ -15,16 +15,27 @@
 #include <AudioFilterFormant.h>
 
 // GUItool: begin automatically generated code
-AudioSynthWaveformSine lfo1;       //xy=680.000000,540.000000
-AudioSynthWaveformDc dc1;          //xy=685.000000,495.000000
-AudioSynthWaveformModulated osc1;  //xy=855.000000,515.000000
-AudioFilterFormant formant1;       //xy=1010.000000,505.000000
-AudioOutputI2S i2s1;               //xy=1170.000000,500.000000
-AudioConnection patchCord1(lfo1, 0, osc1, 0);
-AudioConnection patchCord2(dc1, 0, osc1, 1);
-AudioConnection patchCord3(osc1, formant1);
-AudioConnection patchCord4(formant1, 0, i2s1, 0);
-AudioConnection patchCord5(formant1, 0, i2s1, 1);
+AudioSynthWaveformSine lfo1;       //xy=90.000000,80.000000
+AudioSynthWaveformDc dc1;          //xy=95.000000,35.000000
+AudioSynthWaveformModulated osc2;  //xy=265.000000,95.000000
+AudioSynthWaveformModulated osc1;  //xy=265.000000,55.000000
+AudioMixer4 mixer1;                //xy=390.000000,95.000000
+AudioFilterFormant formant1;       //xy=510.000000,55.000000
+AudioEffectFreeverb freeverb1;     //xy=635.000000,110.000000
+AudioMixer4 mixer2;                //xy=755.000000,90.000000
+AudioOutputI2S i2s1;               //xy=910.000000,65.000000
+AudioConnection patchCord1(lfo1, 0, osc2, 0);
+AudioConnection patchCord2(dc1, 0, osc2, 1);
+AudioConnection patchCord3(lfo1, 0, osc1, 0);
+AudioConnection patchCord4(dc1, 0, osc1, 1);
+AudioConnection patchCord5(osc1, 0, mixer1, 0);
+AudioConnection patchCord6(osc2, 0, mixer1, 1);
+AudioConnection patchCord7(mixer1, formant1);
+AudioConnection patchCord8(formant1, freeverb1);
+AudioConnection patchCord9(formant1, 0, mixer2, 0);
+AudioConnection patchCord10(freeverb1, 0, mixer2, 1);
+AudioConnection patchCord11(mixer2, 0, i2s1, 0);
+AudioConnection patchCord12(mixer2, 0, i2s1, 1);
 // GUItool: end automatically generated code
 
 #include <MIDI.h>
@@ -39,6 +50,9 @@ MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 #define MIDI_CC_OSC_WAVE 26
 #define MIDI_CC_OSC_SHAPE 27
 #define MIDI_CC_MIX 28
+#define MIDI_CC_SUBOSC 70
+#define MIDI_CC_SUBOSC_TUNE 71
+#define MIDI_CC_REVERB 72
 
 const float MIDI_PITCHBEND_SCALER_NEG = 1.0f / 8192.0f;
 const float MIDI_PITCHBEND_SCALER_POS = 1.0f / 8191.0f;
@@ -54,6 +68,9 @@ uint32_t hwTimesTimer = millis();
 float pitchBendSemitones = 0.0f;
 float pitchBendFactor = 1.0f;
 float modWheel = 0, modAT = 0;
+float subOscLevel = 0;
+float subOscTune = 0.5f;
+float fxMix = 0.15f;
 
 void onControlChange(byte channel, byte number, byte value);
 void onPitchBend(byte channel, int value);
@@ -94,6 +111,10 @@ void setup() {
   lfo1.amplitude(0.0f);
   dc1.amplitude(0.0f);
   osc1.begin(0.0f, OSC_BASE_FREQ, OSC_WAVES[oscWave]);
+  osc2.begin(0.0f, OSC_BASE_FREQ, OSC_WAVES[oscWave]);
+
+  mixer2.gain(0, 1 - fxMix);
+  mixer2.gain(1, fxMix);
 
   AudioInterrupts();
 }
@@ -117,6 +138,8 @@ void handleNoteOff(byte channel, byte pitch, byte velocity) {
   if (playedNote == pitch) {
     Serial.println("Note off");
     osc1.amplitude(0.0f);
+    osc2.amplitude(0.0f);
+    playedNote = 0;
   }
 }
 
@@ -127,13 +150,15 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
 
   float semis = pitch - 48;
 
-  float amp = 1.0f;
   float vowel = (float)(uint8_t)velocity * MIDI_SCALER;
   OSC_BASE_FREQ = noteToFreq(pitch);
+  float totalFreq = OSC_BASE_FREQ * pitchBendFactor;
 
   AudioNoInterrupts();
-  osc1.frequency(OSC_BASE_FREQ * pitchBendFactor);
-  osc1.amplitude(amp);
+  osc1.frequency(totalFreq);
+  osc2.frequency(totalFreq * subOscTune);
+  osc1.amplitude(1);
+  osc2.amplitude(subOscLevel);
   formant1.setVowel(vowel * vowel * 4.0f);
   formant1.setBrightness(semis);
   AudioInterrupts();
@@ -156,9 +181,12 @@ void onPitchBend(byte channel, int value) {
   // Convert semitones to frequency multiplier
   pitchBendFactor = pow(2.0f, pitchBendSemitones / 12.0f);
 
+  float totalFreq = OSC_BASE_FREQ * pitchBendFactor;
+
   AudioNoInterrupts();
   // formant1.setBrightness(pitchBendSemitones);
-  osc1.frequency(OSC_BASE_FREQ * pitchBendFactor);
+  osc1.frequency(totalFreq);
+  osc2.frequency(totalFreq * subOscTune);
   AudioInterrupts();
 }
 
@@ -208,6 +236,7 @@ void onControlChange(byte channel, byte number, byte value) {
           oscWave = NUM_OSC_WAVES - 1;
         }
         osc1.begin(OSC_WAVES[oscWave]);
+        osc2.begin(OSC_WAVES[oscWave]);
       }
       break;
     case MIDI_CC_OSC_SHAPE:
@@ -215,6 +244,21 @@ void onControlChange(byte channel, byte number, byte value) {
       break;
     case MIDI_CC_MIX:
       formant1.setMix(fvalue);
+      break;
+    case MIDI_CC_SUBOSC:
+      subOscLevel = fvalue * 0.9f;
+      if (playedNote != 0) {
+        osc2.amplitude(subOscLevel);
+      }
+      break;
+    case MIDI_CC_SUBOSC_TUNE:
+      subOscTune = 0.5f + fvalue * fvalue * 0.01f;
+      osc2.frequency(OSC_BASE_FREQ * pitchBendFactor * subOscTune);
+      break;
+    case MIDI_CC_REVERB:
+      fxMix = fvalue;
+      mixer2.gain(0, 1 - fxMix);
+      mixer2.gain(1, fxMix);
       break;
     default:
       break;
@@ -251,6 +295,15 @@ void onControlChange(byte channel, byte number, byte value) {
       break;
     case MIDI_CC_MIX:
       Serial.printf("Formant Mix: %f\n", fvalue);
+      break;
+    case MIDI_CC_SUBOSC:
+      Serial.printf("Sub Osc Level: %f\n", fvalue);
+      break;
+    case MIDI_CC_SUBOSC_TUNE:
+      Serial.printf("Sub Osc Tune: %f\n", subOscTune);
+      break;
+    case MIDI_CC_REVERB:
+      Serial.printf("Reverb Mix: %f\n", fxMix);
       break;
     default:
       Serial.printf("UNUSED MIDI CC#%d: %d \n", number, value);
