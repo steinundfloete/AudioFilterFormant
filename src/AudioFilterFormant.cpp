@@ -19,7 +19,7 @@ static const float child[5][3] = {
 // Constructor
 // ---------------------------------------------------------------------------
 AudioFilterFormant::AudioFilterFormant()
-: AudioStream(1,inputQueueArray)
+: AudioStream(3,inputQueueArray)
 {
   vowel = targetVowel = 0.0f;
   qFactor = targetQ = 8.0f;
@@ -28,7 +28,12 @@ AudioFilterFormant::AudioFilterFormant()
   formantSetMorph = 0.0f;
   brightness = 0.0f;
   pitchScale = 1.0f;
-  mix = 1.0f; // default = full effect
+  mix = 0.0f; // default = no effect
+  vowelModDepth = 0.0f;
+  brightnessModDepth = 0.0f;
+  procVowel = vowel;               // start at base values
+  procBrightness = brightness;
+
   calcFormants();
 }
 
@@ -115,10 +120,11 @@ void AudioFilterFormant::smoothParams(){
 // Calculate interpolated formant frequencies
 // ---------------------------------------------------------------------------
 void AudioFilterFormant::calcFormants(){
-  int idx = (int)vowel;
-  float frac = vowel - idx;
-  if(idx>=4){ idx=3; frac=1.0f; }
-
+  float v = procVowel;           // << use effective (base + mod)
+  int idx = (int)v;
+  float frac = v - idx;
+  if (idx >= 4) { idx = 3; frac = 1.0f; }
+  
   // Interpolate between male→female→child sets
   float m = formantSetMorph;
   float wMale,wFemale,wChild;
@@ -173,40 +179,90 @@ inline float AudioFilterFormant::processBiquad(Biquad &bq,float x){
 // ---------------------------------------------------------------------------
 // Main audio update loop
 // ---------------------------------------------------------------------------
-void AudioFilterFormant::update(void){
-  smoothParams();
+void AudioFilterFormant::update(void) {
+  // --- Receive inputs ---
+  audio_block_t *in  = receiveReadOnly(0);
+  audio_block_t *mV  = receiveReadOnly(1);  // vowel mod
+  audio_block_t *mBr = receiveReadOnly(2);  // brightness mod
+
+  if (!in) {
+    if (mV)  release(mV);
+    if (mBr) release(mBr);
+    return;
+  }
+
+  if(mix == 0.0f) {
+    transmit(in);
+    release(in);
+    if (mV)  release(mV);
+    if (mBr) release(mBr);
+	return; 
+  }
+  
+  // --- Block-averaged modulation (-1..+1) ---
+  float mv = 0.0f;
+  float mb = 0.0f;
+  if (mV) {
+    int32_t acc = 0;
+    for (int i = 0; i < AUDIO_BLOCK_SAMPLES; ++i) acc += mV->data[i];
+    mv = (float)acc / (32768.0f * AUDIO_BLOCK_SAMPLES);
+  }
+  if (mBr) {
+    int32_t acc = 0;
+    for (int i = 0; i < AUDIO_BLOCK_SAMPLES; ++i) acc += mBr->data[i];
+    mb = (float)acc / (32768.0f * AUDIO_BLOCK_SAMPLES);
+  }
+
+  // --- Effective (base + mod) parameters for this block ---
+  // clamp so depth=0 truly disables modulation (no "stuck" state)
+  procVowel      = vowel      + mv * vowelModDepth;
+  if (procVowel < 0.0f) procVowel = 0.0f;
+  if (procVowel > 4.0f) procVowel = 4.0f;
+
+  procBrightness = brightness + mb * brightnessModDepth;
+  if (procBrightness < -24.0f) procBrightness = -24.0f;
+  if (procBrightness >  24.0f) procBrightness =  24.0f;
+
+  // brightness drives pitchScale directly
+  pitchScale = powf(2.0f, procBrightness / 12.0f);
+
+  // --- Smooth Q & internal timing; then compute formants for procVowel ---
+  smoothParams();           // keeps Q loudness compensation & timing
+  calcFormants();           // now uses procVowel & current pitchScale
   morphBiquadCoeffs(bq1);
   morphBiquadCoeffs(bq2);
   morphBiquadCoeffs(bq3);
 
-  audio_block_t *in = receiveReadOnly(0);
-  if(!in) return;
-  if(mix == 0.0f) {
-    transmit(in);
-    release(in);
-	return; 
-  }
+  // --- Allocate output ---
   audio_block_t *out = allocate();
-  if(!out){ 
-	release(in); 
-	return; 
+  if (!out) {
+    release(in);
+    if (mV)  release(mV);
+    if (mBr) release(mBr);
+    return;
   }
 
-  for(int i=0;i<AUDIO_BLOCK_SAMPLES;i++){
-    float x = (float)in->data[i] / 32768.0f;
-    float y1 = processBiquad(bq1,x);
-    float y2 = processBiquad(bq2,x);
-    float y3 = processBiquad(bq3,x);
-	float wet = (y1 + y2 + y3) * (gain * compGain * 5.0f / 3.0f);
-	float y = (x * (1.0f - mix)) + (wet * mix);    
-	if(y>1) 
-		y=1; 
-	else if(y<-1) 
-		y=-1;
+  // --- Main DSP loop ---
+  for (int i = 0; i < AUDIO_BLOCK_SAMPLES; i++) {
+    float x  = (float)in->data[i] / 32768.0f;
+
+    float y1 = processBiquad(bq1, x);
+    float y2 = processBiquad(bq2, x);
+    float y3 = processBiquad(bq3, x);
+
+    float wet = (y1 + y2 + y3) * (gain * compGain * 5.0f / 3.0f);
+    float y   = x * (1.0f - mix) + wet * mix;
+
+    if (y >  1.0f) y =  1.0f;
+    if (y < -1.0f) y = -1.0f;
+
     out->data[i] = (int16_t)(y * 32767.0f);
   }
 
   transmit(out);
   release(out);
   release(in);
+  if (mV)  release(mV);
+  if (mBr) release(mBr);
 }
+

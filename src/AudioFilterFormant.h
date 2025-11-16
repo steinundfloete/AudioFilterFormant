@@ -80,8 +80,24 @@ public:
       default = 1.0 */
   void setMix(float m);  
 
+// Vowel modulation depth (0..4)
+void setVowelModDepth(float d) {
+	if(d < 0.0f)
+		d = 0.0f;
+	else if(d > 4.0f)
+		d = 4.0f;
+	vowelModDepth = d; 
+}
+// Brightness modulation depth semitones(0..24)
+void setBrightnessModDepth(float d) { 
+	if(d < 0.0f)
+		d = 0.0f;
+	else if(d > 24.0f)
+		d = 24.0f;
+	brightnessModDepth = d; 
+}
 private:
-  audio_block_t *inputQueueArray[1];
+  audio_block_t *inputQueueArray[3];
 
   struct Biquad {
     float b0,b1,b2,a1,a2;        // current coefficients
@@ -100,6 +116,12 @@ private:
   Biquad bq1,bq2,bq3;
   float mix;  // dry/wet balance
   float lastV = -1, lastQ = -1;
+ // modulation depths
+  float vowelModDepth;       // range in vowel units (0..4)
+  float brightnessModDepth;  // range in semitones
+  // storage for modulated values
+  float procVowel;
+  float procBrightness;  
 
   void calcFormants();
   void calcBandpass(Biquad &bq, float freq);
