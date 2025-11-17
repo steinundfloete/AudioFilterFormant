@@ -1,6 +1,5 @@
-# Arduino / PlatformIO build artifacts
-*.bak
-*.swp
+.DS_Store
+Thumbs.db
 *.o
 *.obj
 *.elf
@@ -9,11 +8,5 @@
 *.d
 *.a
 *.map
-
-# macOS / Windows metadata
-.DS_Store
-Thumbs.db
-
-# VSCode / PlatformIO
 .vscode/
 .pio/
