@@ -9,7 +9,7 @@
   ---------------------------------------------------------------------------
    AudioFilterFormant
   ---------------------------------------------------------------------------
-   Author: ChatGPT 2025 – Optimized for Teensy 4.x + Audio Library
+   Author: Uli Schmidt 2025 – Optimized for Teensy 4.x + Audio Library
 
    Description:
      A smooth, morphable 3-band formant filter simulating human vowel
